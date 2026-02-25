@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Secure Telegram Bridge",
+  "version": "1.0",
+  "description": "Securely launch the Telegram Bridge chat with context.",
+  "permissions": ["activeTab"],
+  "action": {
+    "default_title": "Open Secure Chat"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
