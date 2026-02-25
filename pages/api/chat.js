@@ -20,7 +20,10 @@ export default async function handler(req, res) {
     case 'POST':
       try {
         /* Encrypted content is expected in req.body.content */
-        const message = await Message.create(req.body);
+        /* Plain content is optional for decrypted Telegram notification */
+        const { plainContent, ...messageData } = req.body;
+
+        const message = await Message.create(messageData);
 
         /* Send to Telegram if direction is outbound (from extension/web app) */
         if (message.direction === 'outbound') {
@@ -33,7 +36,7 @@ export default async function handler(req, res) {
                 `https://api.telegram.org/bot${telegramToken}/sendMessage`,
                 {
                   chat_id: chatId,
-                  text: message.content, // Send encrypted content
+                  text: plainContent || message.content, // Send plain content if available, otherwise encrypted
                 }
               );
             } catch (tgError) {

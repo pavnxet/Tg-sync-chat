@@ -10,6 +10,10 @@ const MessageSchema = new mongoose.Schema({
     enum: ['inbound', 'outbound'],
     required: true,
   },
+  isEncrypted: {
+    type: Boolean,
+    default: true,
+  },
   timestamp: {
     type: Date,
     default: Date.now,

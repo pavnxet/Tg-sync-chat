@@ -31,6 +31,11 @@ export default function Home() {
       const res = await axios.get('/api/chat');
       if (res.data.success) {
         const decryptedMessages = res.data.data.map((msg) => {
+          // If explicitly marked as not encrypted, use plain content
+          if (msg.isEncrypted === false) {
+             return { ...msg, text: msg.content };
+          }
+
           try {
             const bytes = CryptoJS.AES.decrypt(msg.content, passphrase);
             const originalText = bytes.toString(CryptoJS.enc.Utf8);
@@ -98,6 +103,7 @@ export default function Home() {
       await axios.post('/api/chat', {
         content: encrypted,
         direction: 'outbound',
+        plainContent: input, // Send plain content for Telegram
       });
       fetchMessages(); // Refresh to confirm and get real ID/timestamp
     } catch (err) {
