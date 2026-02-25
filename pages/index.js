@@ -31,8 +31,9 @@ export default function Home() {
       const res = await axios.get('/api/chat');
       if (res.data.success) {
         const decryptedMessages = res.data.data.map((msg) => {
-          // If explicitly marked as not encrypted, use plain content
-          if (msg.isEncrypted === false) {
+          // If explicitly marked as not encrypted OR it's an inbound message (which is always plaintext from Telegram)
+          // This handles cases where isEncrypted might be undefined if the schema update wasn't applied correctly to old records or due to HMR issues.
+          if (msg.isEncrypted === false || msg.direction === 'inbound') {
              return { ...msg, text: msg.content };
           }
 
