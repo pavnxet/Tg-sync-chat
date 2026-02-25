@@ -16,6 +16,17 @@ export default async function handler(req, res) {
             return res.status(500).end();
         }
 
+        // Validate Chat ID
+        const allowedChatId = process.env.TELEGRAM_CHAT_ID;
+        const senderChatId = update.message.chat && update.message.chat.id;
+
+        if (!allowedChatId) {
+            console.warn('TELEGRAM_CHAT_ID not configured, accepting all messages');
+        } else if (String(senderChatId) !== String(allowedChatId)) {
+            console.warn(`Unauthorized message attempt from Chat ID: ${senderChatId} (Expected: ${allowedChatId})`);
+            return res.status(200).json({ ok: true, ignored: true });
+        }
+
         await dbConnect();
 
         // Safely parse timestamp
