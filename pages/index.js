@@ -28,9 +28,11 @@ export default function Home() {
     setLoading(true);
     try {
       const res = await axios.get('/api/chat');
-      if (res.data.success) {
+      if (res.data.success && Array.isArray(res.data.data)) {
         const plainMessages = res.data.data.map((msg) => {
-          return { ...msg, text: msg.content };
+          // Handle potential missing content or legacy data
+          const text = msg.content || '[Empty Message]';
+          return { ...msg, text: text };
         });
         setMessages(plainMessages);
       }
