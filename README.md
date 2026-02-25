@@ -33,7 +33,7 @@ A Next.js application that provides a secure, end-to-end encrypted chat interfac
 
 ## Security Note
 
--   Messages are encrypted client-side using AES-256 (via `crypto-js`).
--   The server and database only store encrypted ciphertext.
+-   **Outbound Messages (Web -> Telegram):** Encrypted client-side using AES-256 (via `crypto-js`). The database stores only the ciphertext, but a decrypted version is sent to the Telegram bot for notification purposes.
+-   **Inbound Messages (Telegram -> Web):** Stored in plaintext since the server does not have access to your client-side passphrase to encrypt them. These are displayed directly in the web interface.
 -   The passphrase is never sent to the server.
--   **Important:** If you lose your passphrase, you cannot decrypt your message history.
+-   **Important:** If you lose your passphrase, you cannot decrypt your outbound message history.
