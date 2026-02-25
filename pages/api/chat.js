@@ -19,11 +19,11 @@ export default async function handler(req, res) {
 
     case 'POST':
       try {
-        /* Encrypted content is expected in req.body.content */
-        /* Plain content is optional for decrypted Telegram notification */
-        const { plainContent, ...messageData } = req.body;
+        const messageData = req.body;
+        // Ensure no plainContent or other fields if passed accidentally
+        const { content, direction, timestamp } = messageData;
 
-        const message = await Message.create(messageData);
+        const message = await Message.create({ content, direction, timestamp });
 
         /* Send to Telegram if direction is outbound (from extension/web app) */
         if (message.direction === 'outbound') {
@@ -36,13 +36,11 @@ export default async function handler(req, res) {
                 `https://api.telegram.org/bot${telegramToken}/sendMessage`,
                 {
                   chat_id: chatId,
-                  text: plainContent || message.content, // Send plain content if available, otherwise encrypted
+                  text: message.content,
                 }
               );
             } catch (tgError) {
               console.error('Telegram API Error:', tgError.response?.data || tgError.message);
-              // We don't fail the request if Telegram fails, but we log it.
-              // Or maybe we should return a warning?
             }
           } else {
              console.warn('Telegram credentials not set');

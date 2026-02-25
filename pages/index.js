@@ -2,11 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import CryptoJS from 'crypto-js';
 
 export default function Home() {
   const router = useRouter();
-  const [passphrase, setPassphrase] = useState('');
+  const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -25,28 +24,15 @@ export default function Home() {
 
   // Fetch messages
   const fetchMessages = async () => {
-    if (!passphrase) return;
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const res = await axios.get('/api/chat');
       if (res.data.success) {
-        const decryptedMessages = res.data.data.map((msg) => {
-          // If explicitly marked as not encrypted OR it's an inbound message (which is always plaintext from Telegram)
-          // This handles cases where isEncrypted might be undefined if the schema update wasn't applied correctly to old records or due to HMR issues.
-          if (msg.isEncrypted === false || msg.direction === 'inbound') {
-             return { ...msg, text: msg.content };
-          }
-
-          try {
-            const bytes = CryptoJS.AES.decrypt(msg.content, passphrase);
-            const originalText = bytes.toString(CryptoJS.enc.Utf8);
-            if (!originalText) throw new Error('Decryption failed');
-            return { ...msg, text: originalText };
-          } catch (e) {
-            return { ...msg, text: '[Decryption Error]', error: true };
-          }
+        const plainMessages = res.data.data.map((msg) => {
+          return { ...msg, text: msg.content };
         });
-        setMessages(decryptedMessages);
+        setMessages(plainMessages);
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
@@ -56,12 +42,12 @@ export default function Home() {
 
   // Poll for messages when authenticated
   useEffect(() => {
-    if (isAuthenticated && passphrase) {
+    if (isAuthenticated) {
       fetchMessages();
       const interval = setInterval(fetchMessages, 5000);
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated, passphrase]);
+  }, [isAuthenticated]);
 
   // Scroll to bottom of chat
   const scrollToBottom = () => {
@@ -72,39 +58,41 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (passphrase.trim()) {
-      setIsAuthenticated(true);
+    if (!password.trim()) return;
+
+    try {
+      const res = await axios.post('/api/login', { password });
+      if (res.data.success) {
+        setIsAuthenticated(true);
+      }
+    } catch (err) {
+      alert('Incorrect password');
+      console.error('Login failed:', err);
     }
   };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!input.trim() || !passphrase) return;
-
-    const encrypted = CryptoJS.AES.encrypt(input, passphrase).toString();
+    if (!input.trim()) return;
 
     // Optimistic update
     const optimisticMessage = {
-      content: encrypted,
+      content: input,
       direction: 'outbound',
       timestamp: new Date().toISOString(),
       text: input,
     };
-    // Don't add optimistic message to state immediately to avoid dupes on re-fetch,
-    // or just rely on fetch. But for responsiveness, add it.
-    // Actually, since we re-fetch every 5s and also after send, it might be fine.
-    // Ideally we should manage local state better, but this is simple enough.
-    setMessages((prev) => [...prev, optimisticMessage]);
 
+    setMessages((prev) => [...prev, optimisticMessage]);
+    const messageToSend = input;
     setInput('');
 
     try {
       await axios.post('/api/chat', {
-        content: encrypted,
+        content: messageToSend,
         direction: 'outbound',
-        plainContent: input, // Send plain content for Telegram
       });
       fetchMessages(); // Refresh to confirm and get real ID/timestamp
     } catch (err) {
@@ -120,23 +108,23 @@ export default function Home() {
           <title>Secure Chat Login</title>
         </Head>
         <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
-          <h1 className="text-2xl font-bold mb-6 text-center text-blue-400">Secure Bridge</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center text-blue-400">Telegram Bridge</h1>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-gray-400 mb-2">Enter Passphrase</label>
+              <label className="block text-gray-400 mb-2">Enter Password</label>
               <input
                 type="password"
                 className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-500"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-                placeholder="Your secret key..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password..."
               />
             </div>
             <button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-200"
             >
-              Unlock Chat
+              Enter Chat
             </button>
           </form>
         </div>
@@ -147,24 +135,24 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
       <Head>
-        <title>Secure Chat</title>
+        <title>Telegram Chat</title>
       </Head>
 
       {/* Header */}
       <header className="bg-gray-800 p-4 shadow-md flex justify-between items-center z-10">
         <h1 className="text-xl font-bold text-blue-400">Telegram Bridge</h1>
         <button
-          onClick={() => { setIsAuthenticated(false); setPassphrase(''); setMessages([]); }}
+          onClick={() => { setIsAuthenticated(false); setPassword(''); setMessages([]); }}
           className="text-sm text-gray-400 hover:text-white px-3 py-1 rounded border border-gray-600 hover:border-gray-400"
         >
-          Lock
+          Logout
         </button>
       </header>
 
       {/* Chat Area */}
       <main className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && !loading && (
-          <div className="text-center text-gray-500 mt-10">No messages yet. Start a secure conversation.</div>
+          <div className="text-center text-gray-500 mt-10">No messages yet. Start a conversation.</div>
         )}
 
         {messages.map((msg, idx) => (
@@ -195,7 +183,7 @@ export default function Home() {
             <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
             <textarea
                 className="flex-1 p-3 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-500 resize-none h-14"
-                placeholder="Type a secure message..."
+                placeholder="Type a message..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {

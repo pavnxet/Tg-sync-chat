@@ -12,7 +12,6 @@ export default async function handler(req, res) {
         await Message.create({
           content: update.message.text,
           direction: 'inbound',
-          isEncrypted: false,
           timestamp: new Date(update.message.date * 1000), // Telegram timestamp is unix seconds
         });
 
